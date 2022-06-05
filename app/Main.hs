@@ -6,7 +6,7 @@ import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Text (Text)
-import Lucid (ToHtml (toHtml), h1_, li_, ul_)
+import Lucid (ToHtml (toHtml), br_, form_, h1_, h2_, input_, label_, li_, method_, name_, textarea_, type_, ul_, value_)
 import Web.Spock (HasSpock (getState), SpockM, get, param', post, redirect, root, runSpock, spock)
 import Web.Spock.Config (
     PoolOrConn (PCNoDatabase),
@@ -41,6 +41,17 @@ app = do
                     toHtml (author note)
                     ": "
                     toHtml (contents note)
+            h2_ "New note"
+            form_ [method_ "post"] $ do
+                label_ $ do
+                    "Author: "
+                    input_ [name_ "author"]
+                br_ []
+                label_ $ do
+                    "Contents:"
+                    textarea_ [name_ "contents"] ""
+                input_ [type_ "submit", value_ "Add note"]
+
     post root $ do
         newAuthor <- param' "author"
         newContents <- param' "contents"

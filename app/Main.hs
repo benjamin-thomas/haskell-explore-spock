@@ -7,6 +7,7 @@ import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
+import Data.Time.Format
 import Lucid (ToHtml (toHtml), br_, form_, h1_, h2_, input_, label_, li_, method_, name_, textarea_, type_, ul_, value_)
 import Web.Spock (HasSpock (getState), SpockM, get, param', post, redirect, root, runSpock, spock)
 import Web.Spock.Config (
@@ -29,12 +30,18 @@ data Note = Note
 
 newtype ServerState = ServerState {state :: IORef (UTCTime, [Note])}
 
+toEpoch :: UTCTime -> String
+toEpoch = formatTime defaultTimeLocale "%s"
+
 app :: Server ()
 app = do
     get root $ do
-        (_, notes') <- getState >>= (liftIO . readIORef . state)
+        (t, notes') <- getState >>= (liftIO . readIORef . state)
         lucid $ do
             h1_ "Notes"
+
+            h2_ $ toHtml (toEpoch t)
+
             ul_ $
                 forM_ notes' $ \note -> li_ $ do
                     toHtml (author note)

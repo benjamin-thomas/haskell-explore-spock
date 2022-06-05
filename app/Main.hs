@@ -2,8 +2,13 @@
 
 module Main where
 
-import Web.Spock
-import Web.Spock.Config
+import Lucid (h1_, p_)
+import Web.Spock (SpockM, get, root, runSpock, spock)
+import Web.Spock.Config (
+    PoolOrConn (PCNoDatabase),
+    defaultSpockCfg,
+ )
+import Web.Spock.Lucid (lucid)
 
 -- https://haskell-at-work.com/episodes/2018-04-09-your-first-web-application-with-spock.html
 --
@@ -13,7 +18,10 @@ import Web.Spock.Config
 type Server a = SpockM () () () a
 
 app :: Server ()
-app = get root (html "<h1>Hello!!</h1>")
+app = get root $
+    lucid $ do
+        h1_ "Lucid templates..."
+        p_ "Are awesome!!"
 
 main :: IO ()
 main = do

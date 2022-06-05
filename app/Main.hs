@@ -8,8 +8,9 @@ import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
 import Data.Time.Format
-import Lucid (ToHtml (toHtml), br_, form_, h1_, h2_, input_, label_, li_, method_, name_, textarea_, type_, ul_, value_)
-import Web.Spock (HasSpock (getState), SpockM, get, param', post, redirect, root, runSpock, spock)
+import Lucid (ToHtml (toHtml), br_, form_, h1_, h2_, head_, href_, input_, label_, li_, link_, method_, name_, rel_, textarea_, type_, ul_, value_)
+import Network.Wai.Middleware.Static
+import Web.Spock (HasSpock (getState), SpockM, get, middleware, param', post, redirect, root, runSpock, spock)
 import Web.Spock.Config (
     PoolOrConn (PCNoDatabase),
     defaultSpockCfg,
@@ -35,9 +36,12 @@ toEpoch = formatTime defaultTimeLocale "%s"
 
 app :: Server ()
 app = do
+    middleware (staticPolicy (addBase "static"))
     get root $ do
         (t, notes') <- getState >>= (liftIO . readIORef . state)
         lucid $ do
+            head_ $ do
+                link_ [href_ "/css/main.css", rel_ "stylesheet"]
             h1_ "Notes"
 
             h2_ $ toHtml (toEpoch t)

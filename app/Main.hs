@@ -6,6 +6,7 @@ import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import Data.Text (Text)
+import Data.Time (UTCTime, getCurrentTime)
 import Lucid (ToHtml (toHtml), br_, form_, h1_, h2_, input_, label_, li_, method_, name_, textarea_, type_, ul_, value_)
 import Web.Spock (HasSpock (getState), SpockM, get, param', post, redirect, root, runSpock, spock)
 import Web.Spock.Config (
@@ -13,8 +14,6 @@ import Web.Spock.Config (
     defaultSpockCfg,
  )
 import Web.Spock.Lucid (lucid)
-
--- import Data.Semigroup ((<>))
 
 -- https://haskell-at-work.com/episodes/2018-04-09-your-first-web-application-with-spock.html
 --
@@ -28,12 +27,12 @@ data Note = Note
     , contents :: Text
     }
 
-newtype ServerState = ServerState {notes :: IORef [Note]}
+newtype ServerState = ServerState {state :: IORef (UTCTime, [Note])}
 
 app :: Server ()
 app = do
     get root $ do
-        notes' <- getState >>= (liftIO . readIORef . notes)
+        (_, notes') <- getState >>= (liftIO . readIORef . state)
         lucid $ do
             h1_ "Notes"
             ul_ $
@@ -55,20 +54,24 @@ app = do
     post root $ do
         newAuthor <- param' "author"
         newContents <- param' "contents"
-        notesRef <- notes <$> getState
+        ref <- state <$> getState
         liftIO $
-            atomicModifyIORef' notesRef $ \notes_ ->
-                (notes_ <> [Note newAuthor newContents], ())
+            atomicModifyIORef' ref $ \(start_, notes_) ->
+                ((start_, notes_ <> [Note newAuthor newContents]), ())
         redirect "/"
 
 main :: IO ()
 main = do
-    state <-
+    now <- getCurrentTime
+    state_ <-
         ServerState
             <$> newIORef
-                [ Note "Bob" "Learn some Haskell"
-                , Note "John" "Keep learning Haskell"
-                ]
+                ( now
+                ,
+                    [ Note "Bob" "Learn some Haskell"
+                    , Note "John" "Keep learning Haskell"
+                    ]
+                )
 
-    cfg <- defaultSpockCfg () PCNoDatabase state
+    cfg <- defaultSpockCfg () PCNoDatabase state_
     runSpock 8080 (spock cfg app)

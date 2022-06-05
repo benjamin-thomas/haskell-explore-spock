@@ -36,6 +36,7 @@ executable spock-notes
                     , mtl
                     , lucid
                     , Spock-lucid
+                    , time
     hs-source-dirs:   app
     default-language: Haskell2010
     ghc-options: -Wall

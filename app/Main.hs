@@ -5,10 +5,12 @@ module Main (main) where
 import Control.Monad (forM_)
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
+import qualified Data.String as Text
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
 import Data.Time.Format
-import Lucid (ToHtml (toHtml), br_, form_, h1_, h2_, head_, href_, input_, label_, li_, link_, method_, name_, rel_, textarea_, type_, ul_, value_)
+import Lucid (ToHtml (toHtml), br_, data_, form_, h1_, h2_, head_, href_, input_, label_, li_, link_, method_, name_, rel_, script_, src_, textarea_, title_, type_, ul_, value_)
+import qualified Lucid.Base
 import Network.Wai.Middleware.Static
 import Web.Spock (HasSpock (getState), SpockM, get, middleware, param', post, redirect, root, runSpock, spock)
 import Web.Spock.Config (
@@ -17,10 +19,22 @@ import Web.Spock.Config (
  )
 import Web.Spock.Lucid (lucid)
 
--- https://haskell-at-work.com/episodes/2018-04-09-your-first-web-application-with-spock.html
---
--- Run with:
---  ghcid -T :main
+{-
+https://haskell-at-work.com/episodes/2018-04-09-your-first-web-application-with-spock.html
+
+Run with:
+  ghcid -T :main
+
+Display with (prerequisite):
+  apt install html-xml-utils
+
+Display with (prerequisite):
+  curl -s localhost:8080 | hxnormalize
+
+Live reload (NOTE: httpie handles retries faster):
+  find . | entr -c http localhost:8080
+  find . | entr -c bash -c "curl -s --retry 5 --retry-connrefused localhost:8080|hxnormalize|head"
+-}
 
 type Server a = SpockM () () ServerState a
 
@@ -34,17 +48,32 @@ newtype ServerState = ServerState {state :: IORef (UTCTime, [Note])}
 toEpoch :: UTCTime -> String
 toEpoch = formatTime defaultTimeLocale "%s"
 
+toEpochHtml :: Monad m => UTCTime -> Lucid.Base.HtmlT m ()
+toEpochHtml t = toHtml (toEpoch t)
+
+toEpochText :: UTCTime -> Text
+toEpochText t = Text.fromString (toEpoch t)
+
+-- https://github.com/chrisdone/lucid/issues/30
+scriptTag :: Monad m => Text -> Lucid.Base.HtmlT m ()
+scriptTag s = script_ [src_ s] emptyContent
+  where
+    emptyContent :: Text
+    emptyContent = ""
+
 app :: Server ()
 app = do
     middleware (staticPolicy (addBase "static"))
     get root $ do
         (t, notes') <- getState >>= (liftIO . readIORef . state)
         lucid $ do
-            head_ $ do
+            head_ [Lucid.data_ "srv-start" (toEpochText t)] $ do
+                title_ "Speck demo!"
                 link_ [href_ "/css/main.css", rel_ "stylesheet"]
+                scriptTag "/js/reload.js"
             h1_ "Notes"
 
-            h2_ $ toHtml (toEpoch t)
+            h2_ (toEpochHtml t)
 
             ul_ $
                 forM_ notes' $ \note -> li_ $ do

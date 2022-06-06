@@ -9,7 +9,7 @@ import qualified Data.String as Text
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
 import Data.Time.Format
-import Lucid (ToHtml (toHtml), br_, data_, form_, h1_, h2_, head_, href_, input_, label_, li_, link_, method_, name_, rel_, script_, src_, textarea_, title_, type_, ul_, value_)
+import Lucid (ToHtml (toHtml), br_, data_, form_, h1_, h2_, h3_, head_, href_, input_, label_, li_, link_, method_, name_, rel_, script_, src_, textarea_, title_, type_, ul_, value_)
 import qualified Lucid.Base
 import Network.Wai.Middleware.Static
 import Web.Spock (HasSpock (getState), SpockM, get, middleware, param', post, redirect, root, runSpock, spock)
@@ -71,9 +71,10 @@ app = do
                 title_ "Speck demo!"
                 link_ [href_ "/css/main.css", rel_ "stylesheet"]
                 scriptTag "/js/reload.js"
-            h1_ "Notes"
 
-            h2_ (toEpochHtml t)
+            h1_ "Notes"
+            h2_ "\"live\" reload on port 4000"
+            h3_ (toEpochHtml t)
 
             ul_ $
                 forM_ notes' $ \note -> li_ $ do
@@ -114,4 +115,4 @@ main = do
                 )
 
     cfg <- defaultSpockCfg () PCNoDatabase state_
-    runSpock 8080 (spock cfg app)
+    runSpock 4000 (spock cfg app)

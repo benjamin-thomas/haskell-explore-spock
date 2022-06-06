@@ -1,4 +1,29 @@
-const start = document.head.dataset.srvStart;
+(function () {
+    const start = document.head.dataset.srvStart;
 
-console.log('Server start time is:', start);
-console.log("Next, I'll have to fetch another endpoint, and then reload if start does not match")
+    function getLatestStartTime() {
+        return fetch('http://localhost:4000')
+            .then(res => res.text())
+            .then(res => {
+                const node = document.createElement('html');
+                node.innerHTML = res;
+
+                return node.getElementsByTagName('head')[0].dataset.srvStart;
+            })
+            .catch(_ => {
+                return start;
+            });
+    }
+
+
+    function checkReload() {
+        getLatestStartTime()
+            .then(latestStart => {
+                if (start !== latestStart) {
+                    document.location.reload();
+                }
+            });
+    }
+
+    setInterval(checkReload, 1000);
+})();

@@ -8,10 +8,19 @@ import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import qualified Data.String as Text
 import Data.Text (Text)
 import Data.Time (UTCTime, getCurrentTime)
-import Data.Time.Format
+import Data.Time.Format (defaultTimeLocale, formatTime)
 import Lucid (ToHtml (toHtml), br_, data_, form_, h1_, h2_, h3_, head_, href_, input_, label_, li_, link_, method_, name_, rel_, script_, src_, textarea_, title_, type_, ul_, value_)
 import qualified Lucid.Base
-import Network.Wai.Middleware.Static
+
+import Control.Concurrent (threadDelay)
+import qualified Data.Text as T
+import Network.Wai (Middleware)
+import Network.Wai.Handler.WebSockets (websocketsOr)
+import Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import Network.Wai.Middleware.Static (addBase, staticPolicy)
+
+import Network.WebSockets (Connection, ServerApp, acceptRequest, defaultConnectionOptions, sendTextData)
+import System.Environment (getEnv)
 import Web.Spock (HasSpock (getState), SpockM, get, middleware, param', post, redirect, root, runSpock, spock)
 import Web.Spock.Config (
     PoolOrConn (PCNoDatabase),
@@ -23,7 +32,7 @@ import Web.Spock.Lucid (lucid)
 https://haskell-at-work.com/episodes/2018-04-09-your-first-web-application-with-spock.html
 
 Run with:
-  ghcid -T :main
+  PORT=4000 ghcid -T :main
 
 Display with (prerequisite):
   apt install html-xml-utils
@@ -61,9 +70,29 @@ scriptTag s = script_ [src_ s] emptyContent
     emptyContent :: Text
     emptyContent = ""
 
+-- WEBSOCKET / AUTO-REFRESH
+
+counter :: Connection -> Int -> IO ()
+counter conn i = do
+    threadDelay 500000 -- 500ms
+    sendTextData conn (T.pack $ show i)
+    counter conn (i + 1)
+
+wsApp :: ServerApp
+wsApp pendingConn = do
+    conn <- acceptRequest pendingConn
+    counter conn 1
+
+wsMiddleware :: Middleware
+wsMiddleware = websocketsOr defaultConnectionOptions wsApp
+
+-- SERVER
+
 app :: Server ()
 app = do
     middleware (staticPolicy (addBase "static"))
+    middleware logStdoutDev
+    middleware wsMiddleware
     get root $ do
         (t, notes') <- getState >>= (liftIO . readIORef . state)
         lucid $ do
@@ -115,4 +144,6 @@ main = do
                 )
 
     cfg <- defaultSpockCfg () PCNoDatabase state_
-    runSpock 4000 (spock cfg app)
+
+    port <- read <$> getEnv "PORT"
+    runSpock port (spock cfg app)

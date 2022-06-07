@@ -1,29 +1,21 @@
 (function () {
-    const start = document.head.dataset.srvStart;
 
-    function getLatestStartTime() {
-        return fetch('http://localhost:4000')
-            .then(res => res.text())
-            .then(res => {
-                const node = document.createElement('html');
-                node.innerHTML = res;
+    autoReloadStart = function (serverRestarted) {
+        const ws = new WebSocket(`ws://${window.location.host}`);
 
-                return node.getElementsByTagName('head')[0].dataset.srvStart;
-            })
-            .catch(_ => {
-                return start;
-            });
-    }
+        ws.onmessage = function (event) {
+            var i = Number(event.data);
+            if (serverRestarted && i === 1) {
+                window.location.reload();
+            }
+        };
 
+        ws.onclose = function () {
+            setTimeout(function () {
+                autoReloadStart(true);
+            }, 100);
+        };
+    };
 
-    function checkReload() {
-        getLatestStartTime()
-            .then(latestStart => {
-                if (start !== latestStart) {
-                    document.location.reload();
-                }
-            });
-    }
-
-    setInterval(checkReload, 1000);
-})();
+    window.onload = autoReloadStart(false);
+}());

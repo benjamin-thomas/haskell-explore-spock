@@ -1,8 +1,14 @@
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Main (main) where
 
-import Control.Monad (forM_)
+import Control.Monad (
+    forM_,
+    void,
+ )
 import Control.Monad.IO.Class (liftIO)
 import Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import qualified Data.String as Text
@@ -19,6 +25,11 @@ import Network.Wai.Handler.WebSockets (websocketsOr)
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import Network.Wai.Middleware.Static (addBase, staticPolicy)
 
+import Data.Int (Int32)
+
+import Data.Maybe (listToMaybe)
+import Database.PostgreSQL.Typed (PGConnection, pgExecute, pgQuery)
+import Database.PostgreSQL.Typed.Query (pgSQL)
 import Network.WebSockets (Connection, ServerApp, acceptRequest, defaultConnectionOptions, sendTextData)
 import System.Environment (getEnv)
 import Web.Spock (HasSpock (getState), SpockM, get, middleware, param', post, redirect, root, runSpock, spock)
@@ -147,3 +158,40 @@ main = do
 
     port <- read <$> getEnv "PORT"
     runSpock port (spock cfg app)
+
+-- DATABASE
+
+data Client = Client Int32 String
+    deriving (Eq)
+
+data Client2 = Client2 {id_ :: Int32, name :: String}
+    deriving (Show)
+
+clientFromRow :: (Int32, String) -> Client2
+clientFromRow (a, b) = newClient a b
+
+newClient :: Int32 -> String -> Client2
+newClient id2 name2 = Client2{id_ = id2, name = name2}
+
+insertClient :: PGConnection -> Client -> IO ()
+insertClient pg (Client cid name) =
+    void $
+        pgExecute
+            pg
+            [pgSQL|INSERT INTO clients (id, name) VALUES (${cid}, ${name})|]
+
+getClient :: PGConnection -> Int32 -> IO (Maybe Client)
+getClient pg cid =
+    fmap (uncurry Client) . listToMaybe
+        <$> pgQuery
+            pg
+            [pgSQL|SELECT id, name FROM clients WHERE id = ${cid}|]
+
+listClients :: PGConnection -> IO [Client2]
+listClients pg = do
+    rows <-
+        pgQuery
+            pg
+            [pgSQL|SELECT id, name FROM clients LIMIT 10|]
+    pure
+        (fmap clientFromRow rows)
